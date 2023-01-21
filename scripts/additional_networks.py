@@ -5,6 +5,7 @@ import json
 import stat
 import sys
 import inspect
+import random
 from collections import OrderedDict
 
 import torch
@@ -18,7 +19,7 @@ from modules import sd_models
 import modules.ui
 
 from scripts import lora_compvis
-
+random.seed(a=None, version=2)
 
 MAX_MODEL_COUNT = 5
 LORA_MODEL_EXTS = [".pt", ".ckpt", ".safetensors"]
@@ -134,7 +135,8 @@ class Script(scripts.Script):
                                 value="None")
 
             weight = gr.Slider(label=f"Weight {i+1}", value=1.0, minimum=-1.0, maximum=2.0, step=.05)
-          ctrls.extend((module, model, weight))
+            rand = gr.Checkbox(label=f"Randomize {i+1}", value=False)
+          ctrls.extend((module, model, weight, rand))
           model_dropdowns.append(model)
 
           self.infotext_fields.extend([
@@ -189,13 +191,31 @@ class Script(scripts.Script):
       return
 
     params = []
+    cnt = 0  
+    offset = 3
     for i, ctrl in enumerate(args[1:]):
-      if i % 3 == 0:
+      
+      if i ==0:
         param = [ctrl]
+      elif i % offset == 0:
+        if ctrl == True:
+            if param[1] is None or param[1] == "None" or len(param[1]) == 0:
+                params[(cnt):] = [("LoRA", 
+                  random.choice(list(lora_models.keys())), 
+                  (random.randrange(0,int(rack*100),5)/100))]
+            else:
+                params[(cnt):] = [("LoRA", 
+                  param[1],
+                  (random.randrange(0,int(rack*100),5)/100))]
+        cnt = cnt + 1
+        offset = i +  4
+      elif i % 4 == 0:
+        param = [ctrl]  
       else:
-        param.append(ctrl)
-        if i % 3 == 2:
+        param.append(ctrl)      
+        if i % 2 == 0:
           params.append(param)
+          rack = ctrl
 
     models_changed = (len(self.latest_networks) == 0)                   # no latest network (cleared by check-off)
     models_changed = models_changed or self.latest_model_hash != p.sd_model.sd_model_hash
